@@ -1,13 +1,19 @@
 // =================== FIREBASE INIT ===================
 const firebaseConfig = {
-  apiKey: "AIzaSyBkxg4EjhbYPwdjSx5s13u8Bhtp6_B3qFQ",
-  authDomain: "kutubxona-9557c.firebaseapp.com",
-  projectId: "kutubxona-9557c",
-  storageBucket: "kutubxona-9557c.firebasestorage.app",
-  messagingSenderId: "117005109193",
-  appId: "1:117005109193:web:2ee3c4089fdaffa0ff0a18"
+  apiKey: "AIzaSyB5DBP6zUWlfrbH1AHGE9TRpNewh2eUzD4",
+  authDomain: "kutubxona-4b423.firebaseapp.com",
+  projectId: "kutubxona-4b423",
+  storageBucket: "kutubxona-4b423.firebasestorage.app",
+  messagingSenderId: "819215312453",
+  appId: "1:819215312453:web:0cc97ae4e273ad7aeae52c"
 };
 firebase.initializeApp(firebaseConfig);
+
+// =================== SUPABASE STORAGE INIT ===================
+const SUPABASE_URL = 'https://nnrhihvwswibdpnykgwp.supabase.co'; // o'zingiz URL qo'ying
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // o'zingiz anon key qo'ying
+const SUPABASE_BUCKET = 'books';
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // =================== ELEMENTS ===================
 const html = document.documentElement;
@@ -452,43 +458,44 @@ uploadForm.addEventListener('submit', async (e) => {
   try {
     const clean = file.name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-.]/g,'');
     const unique = `${Date.now()}_${clean}`;
-    const storageRef = firebase.storage().ref(`books/${unique}`);
-    const uploadTask = storageRef.put(file, { 
-      customMetadata: { secret_code: 'XoLiSaMaLqIlGuVcHiLaRdAnQiL.' } 
-    });
-    
+    const filePath = `${unique}`;
+
     progressWrap.hidden = false;
     progressBar.style.width = '0%';
     progressBar.textContent = '0%';
-    
-    uploadTask.on('state_changed', 
-      (snap) => {
-        const p = (snap.bytesTransferred / snap.totalBytes) * 100;
-        progressBar.style.width = `${p.toFixed(0)}%`;
-        progressBar.textContent = `${p.toFixed(0)}%`;
-      }, 
-      (err) => {
-        console.error('❌ Yuklash xatolik:', err);
-        progressWrap.hidden = true;
-        alert(isKirill ? '❌ Юклашда хатолик: ' + err.message : '❌ Yuklashda xatolik: ' + err.message);
-      }, 
-      async () => {
-        const url = await storageRef.getDownloadURL();
-        await firebase.firestore().collection('books').add({ 
-          title, 
-          description, 
-          category, 
-          link: url, 
-          secret_code: 'XoLiSaMaLqIlGuVcHiLaRdAnQiL.',
-          created: new Date()
-        });
-        
-        alert(isKirill ? '✅ Китоб муваффақиятли қўшилди!' : '✅ Kitob muvaffaqiyatli qo‘shildi!');
-        progressWrap.hidden = true;
-        uploadForm.reset();
-        uploadSection.hidden = true;
-      }
-    );
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(SUPABASE_BUCKET)
+      .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data: publicUrlData, error: publicUrlError } = supabase.storage
+      .from(SUPABASE_BUCKET)
+      .getPublicUrl(filePath);
+
+    if (publicUrlError) {
+      throw publicUrlError;
+    }
+
+    const url = publicUrlData.publicUrl;
+
+    await firebase.firestore().collection('books').add({
+      title,
+      description,
+      category,
+      link: url,
+      path: filePath,
+      secret_code: 'XoLiSaMaLqIlGuVcHiLaRdAnQiL.',
+      created: new Date()
+    });
+
+    alert(isKirill ? '✅ Китоб муваффақиятли қўшилди!' : '✅ Kitob muvaffaqiyatli qo‘shildi!');
+    progressWrap.hidden = true;
+    uploadForm.reset();
+    uploadSection.hidden = true;
   } catch(err) {
     console.error('❌ Xatolik:', err);
     alert(isKirill ? '❌ Хатолик: ' + err.message : '❌ Xatolik: ' + err.message);
@@ -506,9 +513,34 @@ async function deleteBook(bookId, fileURL) {
   if (!confirm(isKirill ? 'Ҳақиқатан ҳам бу китобни ўчирмоқчимисиз?' : 'Haqiqatan ham bu kitobni o‘chirmoqchimisiz?')) return;
   
   try {
-    await firebase.firestore().collection('books').doc(bookId).delete();
-    const ref = firebase.storage().refFromURL(fileURL);
-    await ref.delete();
+    const bookDoc = firebase.firestore().collection('books').doc(bookId);
+    const doc = await bookDoc.get();
+    const bookData = doc.data();
+    const path = bookData ? bookData.path : null;
+
+    await bookDoc.delete();
+
+    if (path) {
+      const { error: deleteError } = await supabase.storage
+        .from(SUPABASE_BUCKET)
+        .remove([path]);
+
+      if (deleteError) {
+        console.warn('Storage o‘chirishda muammo:', deleteError);
+      }
+    } else if (fileURL) {
+      // fallback: URL'dan keying qismni olish
+      try {
+        const urlObj = new URL(fileURL);
+        const key = urlObj.pathname.split('/').pop();
+        if (key) {
+          await supabase.storage.from(SUPABASE_BUCKET).remove([key]);
+        }
+      } catch(e) {
+        console.warn('Fallback delete path topilmadi:', e);
+      }
+    }
+
     alert(isKirill ? '✅ Китоб муваффақиятли ўчирилди!' : '✅ Kitob muvaffaqiyatli o‘chirildi!');
   } catch(err) {
     console.error('❌ O‘chirish xatolik:', err);
