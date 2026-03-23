@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Премиум Кутубхона</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="light">
+  <div id="splash">
+    <h1 id="splashTitle">Кутубхонага</h1>
+    <p id="splashSubtitle">Хуш келибсиз!</p>
+  </div>
+
+<header>
+    <div class="header-content">
+      <h1 data-original-text="Кутубхонага Хуш келибсиз!">Кутубхонага Хуш келибсиз!</h1>
+      <p class="subtitle" data-original-text="Сизга китоб тавсия қиламиз!">Сизга китоб тавсия қиламиз!</p>
+      <div class="header-actions">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Қайси китобни қидиряпсиз?"
+          aria-label="Китоб қидириш"
+          data-original-placeholder="Қайси китобни қидиряпсиз?"
+        />
+        <div class="header-buttons">
+          <button id="toggleLang" class="btn btn-ghost" data-original-text="Тил"><i class="fas fa-language"></i> Тил</button>
+          <button id="toggleTheme" class="btn btn-ghost" aria-label="Mavzuni almashtirish">
+            <i class="fas fa-moon"></i> Қоронғу режим
+          </button>
+        </div>
+      </div>
+    </div>
+</header>
+
+  <nav class="categories-row">
+    <button class="category-btn btn" data-category="Қуръони Карим" data-original-text="Қуръони Карим"><i class="fas fa-book-quran"></i> Қуръони Карим</button>
+    <button class="category-btn btn" data-category="Тафсир китоблари" data-original-text="Тафсир китоблари"><i class="fas fa-book"></i> Тафсир китоблари</button>
+    <button class="category-btn btn" data-category="Ҳадис китоблари" data-original-text="Ҳадис китоблари"><i class="fas fa-quote-right"></i> Ҳадис китоблари</button>
+    <button class="category-btn btn" data-category="Фиқҳий китоблари" data-original-text="Фиқҳий китоблари"><i class="fas fa-balance-scale"></i> Фиқҳий китоблари</button>
+    <button class="category-btn btn" data-category="Ақида китоблари" data-original-text="Ақида китоблари"><i class="fas fa-brain"></i> Ақида китоблари</button>
+    <button class="category-btn btn" data-category="Тарих китоблари" data-original-text="Тарих китоблари"><i class="fas fa-landmark"></i> Тарих китоблари</button>
+    <button class="category-btn btn" data-category="Сийрат китоблари" data-original-text="Сийрат китоблари"><i class="fas fa-road"></i> Сийрат китоблари</button>
+    <button class="category-btn btn" data-category="Саҳобалар ҳаёти" data-original-text="Саҳобалар ҳаёти"><i class="fas fa-users"></i> Саҳобалар ҳаёти</button>
+    <button class="category-btn btn" data-category="Ахлоқ ва тарбия" data-original-text="Ахлоқ ва тарбия"><i class="fas fa-seedling"></i> Ахлоқ ва тарбия</button>
+    <button class="category-btn btn" data-category="Дуо ва зикрлар" data-original-text="Дуо ва зикрлар"><i class="fas fa-hands-praying"></i> Дуо ва зикрлар</button>
+    <button class="category-btn btn" data-category="Ал-Ваъй журнали" data-original-text="Ал-Ваъй журнали"><i class="fas fa-file-alt"></i> Ал-Ваъй журнали</button>
+    <button class="category-btn btn" data-category="Ҳизб китоблари" data-original-text="Ҳизб китоблари"><i class="fas fa-book-open"></i> Ҳизб китоблари</button>
+  </nav>
+
+  <main>
+    <div id="booksContainer" class="grid"></div>
+  </main>
+
+  <div class="center">
+    <button id="adminToggle" class="btn btn-primary"><i class="fas fa-key"></i> Admin Rejim</button>
+  </div>
+
+  <section id="uploadSection" hidden>
+    <h2><i class="fas fa-plus-circle"></i> Янги китоб қўшиш</h2>
+    <form id="uploadForm">
+      <input type="text" id="bookTitle" placeholder="Китоб номи" required />
+      <input type="text" id="bookDescription" placeholder="Тавсиф" />
+      <select id="bookCategory" required>
+        <option value="">Категория танланг</option>
+        <option value="Қуръони Карим">Қуръони Карим</option>
+        <option value="Тафсир китоблари">Тафсир китоблари</option>
+        <option value="Ҳадис китоблари">Ҳадис китоблари</option>
+        <option value="Фиқҳий китоблари">Фиқҳий китоблари</option>
+        <option value="Ақида китоблари">Ақида китоблари</option>
+        <option value="Тарих китоблари">Тарих китоблари</option>
+        <option value="Сийрат китоблари">Сийрат китоблари</option>
+        <option value="Саҳобалар ҳаёти">Саҳобалар ҳаёти</option>
+        <option value="Ахлоқ ва тарбия">Ахлоқ ва тарбия</option>
+        <option value="Дуо ва зикрлар">Дуо ва зикрлар</option>
+        <option value="Ал-Ваъй журнали">Ал-Ваъй журнали</option>
+        <option value="Ҳизб китоблари">Ҳизб китоблари</option>
+      </select>
+      <input type="file" id="bookFile" accept="application/pdf" required />
+      <button type="submit" class="btn btn-primary"><i class="fas fa-upload"></i> Китоб қўшиш</button>
+
+      <div id="progressWrap" hidden>
+        <div id="progressBar">0%</div>
+      </div>
+    </form>
+  </section>
+
+  <div id="pdfModal" class="modal" hidden>
+    <div class="modal-content">
+      <span class="modal-close">&times;</span>
+      <h3><i class="fas fa-file-pdf"></i> PDF билан нима қилмоқчисиз?</h3>
+      <button id="openPDFBtn" class="btn btn-ghost"><i class="fas fa-eye"></i> Браузерда очиш</button>
+      <button id="downloadPDFBtn" class="btn btn-danger"><i class="fas fa-download"></i> Юклаб олиш</button>
+      <div id="downloadNotice" hidden>
+        <p class="success-text"><i class="fas fa-check-circle"></i> PDF қурилмангизга муваффақиятли юкланди!</p>
+        <a id="openDownloaded" href="" target="_blank" class="btn btn-primary"><i class="fas fa-external-link-alt"></i> Юкланган PDF'ни очиш</a>
+      </div>
+    </div>
+  </div>
+  
+  <div id="categoryOverlay" class="overlay" hidden>
+    <div class="overlay-content">
+      <button id="overlayClose" class="btn btn-danger"><i class="fas fa-times"></i> Ёпиш</button>
+      <h2 id="overlayTitle"></h2>
+      <div id="overlayBooks" class="grid"></div>
+    </div>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 Премиум Кутубхона.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
