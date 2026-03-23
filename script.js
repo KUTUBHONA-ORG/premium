@@ -11,7 +11,7 @@ firebase.initializeApp(firebaseConfig);
 
 // =================== SUPABASE STORAGE INIT ===================
 const SUPABASE_URL = 'https://nnrhihvwswibdpnykgwp.supabase.co'; // o'zingiz URL qo'ying
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // o'zingiz anon key qo'ying
+const SUPABASE_ANON_KEY = 'sb_publishable_7xApUVAMQbxv9AhNfVm2NQ_ENrprB9n'; // hozirgi publishable key
 const SUPABASE_BUCKET = 'books';
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
