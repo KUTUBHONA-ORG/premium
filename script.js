@@ -1,12 +1,11 @@
 // =================== FIREBASE INIT ===================
 const firebaseConfig = {
-  apiKey: "AIzaSyDuk-PhyFg5j7JkVnvfcYfBKGMoNZtT02s",
-  authDomain: "kutubxona-79dd3.firebaseapp.com",
-  projectId: "kutubxona-79dd3",
-  storageBucket: "kutubxona-79dd3.firebasestorage.app",
-  messagingSenderId: "593289819612",
-  appId: "1:593289819612:web:89b9a8dd933f945eb78b19",
-  measurementId: "G-Z0Z4FWPWP8"
+  apiKey: "AIzaSyBkxg4EjhbYPwdjSx5s13u8Bhtp6_B3qFQ",
+  authDomain: "kutubxona-9557c.firebaseapp.com",
+  projectId: "kutubxona-9557c",
+  storageBucket: "kutubxona-9557c.firebasestorage.app",
+  messagingSenderId: "117005109193",
+  appId: "1:117005109193:web:2ee3c4089fdaffa0ff0a18"
 };
 firebase.initializeApp(firebaseConfig);
 
