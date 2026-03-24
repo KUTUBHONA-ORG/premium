@@ -258,24 +258,22 @@ function runSplash() {
 
 // =================== BOOK CARD TEMPLATE ===================
 function bookCardTemplate(book) {
-  const title = isKirill ? book.title : TRANSLATIONS[book.title] || book.title;
-  const description = isKirill ? book.description : TRANSLATIONS[book.description] || book.description;
-  const category = isKirill ? book.category : TRANSLATIONS[book.category] || book.category;
-  
-  // Card itself will open PDF modal.
-  return `
-    <article class="card reveal" data-id="${book.id}" data-link="${book.link}" data-category="${book.category}">
-      <div class="book-title">${title || 'Номсиз китоб'}</div>
-      <div class="book-desc">${description || ''}</div>
-      <div class="card-actions">
-        ${isAdmin ? `
-          <button class="btn btn-danger" data-action="delete" data-id="${book.id}" data-link="${book.link}">
-            <i class="fas fa-trash"></i> ${isKirill ? 'Ўчириш' : 'O‘chirish'}
-          </button>
-        ` : ''}
-      </div>
-    </article>
-  `;
+    const title = isKirill ? book.title : (TRANSLATIONS[book.title] || book.title);
+    const description = isKirill ? book.description : (TRANSLATIONS[book.description] || book.description);
+    const category = isKirill ? book.category : (TRANSLATIONS[book.category] || book.category);
+
+    return `
+        <article class="card reveal" data-id="${book.id}" data-link="${book.link}" data-category="${book.category}">
+            <div class="book-title">${title || 'Номсиз китоб'}</div>
+            
+            ${isAdmin ? `
+            <div class="card-actions">
+                <button class="btn btn-danger" data-action="delete" data-id="${book.id}" data-link="${book.link}">
+                    <i class="fas fa-trash"></i> ${isKirill ? 'Ўчириш' : 'Delete'}
+                </button>
+            </div>` : ''}
+        </article>
+    `;
 }
 
 function renderBooks(list, container) {
@@ -525,47 +523,50 @@ uploadForm.addEventListener('submit', async (e) => {
 
 // =================== DELETE ===================
 async function deleteBook(bookId, fileURL) {
-  if (!isAdmin) { 
-    alert(isKirill ? '❌ Сизда ўчириш ҳуқуқи йўқ!' : '❌ Sizda o‘chirish huquqi yo‘q!'); 
-    return; 
-  }
-  
-  if (!confirm(isKirill ? 'Ҳақиқатан ҳам бу китобни ўчирмоқчимисиз?' : 'Haqiqatan ham bu kitobni o‘chirmoqchimisiz?')) return;
-  
-  try {
-    const bookDoc = firebase.firestore().collection('books').doc(bookId);
-    const doc = await bookDoc.get();
-    const bookData = doc.data();
-    const path = bookData ? bookData.path : null;
-
-    await bookDoc.delete();
-
-    if (path) {
-      const { error: deleteError } = await _supabase.storage
-        .from(SUPABASE_BUCKET)
-        .remove([path]);
-
-      if (deleteError) {
-        console.warn('Storage o‘chirishda muammo:', deleteError);
-      }
-    } else if (fileURL) {
-      // fallback: URL'dan keying qismni olish
-      try {
-        const urlObj = new URL(fileURL);
-        const key = urlObj.pathname.split('/').pop();
-        if (key) {
-          await _supabase.storage.from(SUPABASE_BUCKET).remove([key]);
-        }
-      } catch(e) {
-        console.warn('Fallback delete path topilmadi:', e);
-      }
+    // 1. Eng muhim tekshiruv - admin rejimida bo'lmasa, hech narsa qilmaydi
+    if (!isAdmin) {
+        alert(isKirill 
+            ? "❌ Sizda o‘chirish huquqi yo‘q! Faqat admin o‘chira oladi." 
+            : "❌ You don't have permission to delete! Only admin can delete.");
+        return;
     }
 
-    alert(isKirill ? '✅ Китоб муваффақиятли ўчирилди!' : '✅ Kitob muvaffaqiyatli o‘chirildi!');
-  } catch(err) {
-    console.error('❌ O‘chirish xatolik:', err);
-    alert(isKirill ? '❌ Ўчиришда хатолик: ' + err.message : '❌ O‘chirishда хатолик: ' + err.message);
-  }
+    // 2. Ikki marta tasdiqlash (xato bosib qo‘ymaslik uchun)
+    const confirmText = isKirill 
+        ? "Haqiqatan ham bu kitobni butunlay o‘chirmoqchimisiz?" 
+        : "Are you sure you want to permanently delete this book?";
+
+    if (!confirm(confirmText)) return;
+
+    try {
+        const bookDoc = firebase.firestore().collection('books').doc(bookId);
+        const doc = await bookDoc.get();
+        const bookData = doc.data();
+        const path = bookData ? bookData.path : null;
+
+        // Firestore dan o‘chirish
+        await bookDoc.delete();
+
+        // Supabase Storage dan ham o‘chirish
+        if (path) {
+            const { error: deleteError } = await _supabase.storage
+                .from(SUPABASE_BUCKET)
+                .remove([path]);
+
+            if (deleteError) {
+                console.warn('Storage o‘chirishda xatolik:', deleteError);
+            }
+        }
+
+        alert(isKirill ? '✅ Kitob muvaffaqiyatli o‘chirildi!' : '✅ Book deleted successfully!');
+        
+        // Sahifani yangilash
+        loadBooks();   // yoki filterBooks() agar overlay ochiq bo‘lsa
+
+    } catch (err) {
+        console.error('Delete xatolik:', err);
+        alert(isKirill ? '❌ O‘chirishda xatolik yuz berdi' : '❌ Error while deleting');
+    }
 }
 
 // =================== FIRESTORE SYNC ===================
