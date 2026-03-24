@@ -68,6 +68,7 @@ let activeCategory = "";
 let allBooks = [];
 let isAdmin = false;
 let currentPDF = "";
+let currentPDFTitle = "kitob"; // PDF yuklanish uchun fayl nomi
 let isKirill = true; // language state
 
 // =================== THEME ===================
@@ -191,11 +192,13 @@ function setLanguage(isKirillParam) {
     // overlay matnini yangilash
     if (activeCategory) {
         overlayTitle.textContent = isKirill ? activeCategory : (TRANSLATIONS[activeCategory] || activeCategory);
+        // Overlay scrollni top ga qaytarish
+        setTimeout(() => {
+            overlayContent.scrollTop = 0;
+        }, 10);
     }
 
-    if (!activeCategory) {
-      filterCategories(searchInput.value.trim());
-    }
+    // Qidiruv maydoni yangilansin
     filterBooks();
 }
 
@@ -289,6 +292,7 @@ function filterBooks() {
   const q = (searchInput.value || '').toLowerCase();
 
   if (activeCategory) {
+    // Overlay yopiq bo'lganda kategoriya ichidagi kitoblarni filtrlash
     const filtered = allBooks.filter(b => 
       b.category === activeCategory && 
       (!q || (b.title && b.title.toLowerCase().includes(q)) || 
@@ -296,22 +300,24 @@ function filterBooks() {
     );
     renderBooks(filtered, overlayBooks);
   } else {
-    const filtered = allBooks.filter(b => 
-      !q ||
-      (b.title && b.title.toLowerCase().includes(q)) ||
-      (b.description && b.description.toLowerCase().includes(q))
-    );
-    renderBooks(filtered, booksContainer);
+    // Bosh sahifada faqat qidirish bo'yicha kitoblarni chiqarish
+    if (q) {
+      // Qidiruv qidirsa kitoblarni chiqar
+      const filtered = allBooks.filter(b => 
+        (b.title && b.title.toLowerCase().includes(q)) ||
+        (b.description && b.description.toLowerCase().includes(q))
+      );
+      renderBooks(filtered, booksContainer);
+    } else {
+      // Qidiruv bo'sh bo'lsa bosh sahifani tozala
+      booksContainer.innerHTML = '';
+    }
   }
 }
 
 searchInput.addEventListener('input', () => {
-    // Agar overlay ochiq bo'lsa, faqat overlay ichini filtrlash
-    if (activeCategory) {
-        filterBooks();
-    } else {
-        filterCategories(searchInput.value.trim());
-    }
+    // Qidiruv qidirsa kitoblarni filtrlash (kategoriyalarni emas!)
+    filterBooks();
 });
 
 // =================== CATEGORY OVERLAY (history + overlay background sync) ===================
@@ -385,8 +391,9 @@ window.addEventListener('popstate', (e) => {
 });
 
 // =================== PDF MODAL ===================
-function showPDFOptions(pdfURL) {
-  currentPDF = pdfURL; 
+function showPDFOptions(pdfURL, bookTitle = "kitob") {
+  currentPDF = pdfURL;
+  currentPDFTitle = bookTitle;
   downloadNotice.hidden = true;
   pdfModal.hidden = false;
   setTimeout(() => pdfModal.classList.add('show'), 10);
@@ -400,7 +407,7 @@ downloadPDFBtn.addEventListener('click', () => {
   if (!currentPDF) return; 
   const a = document.createElement('a'); 
   a.href = currentPDF; 
-  a.download = 'kitob.pdf'; 
+  a.download = `${currentPDFTitle}.pdf`; 
   document.body.appendChild(a); 
   a.click(); 
   a.remove();
@@ -432,7 +439,8 @@ overlayBooks.addEventListener('click', (e) => {
   }
   const card = e.target.closest('.card');
   if (card && card.dataset.link) {
-    showPDFOptions(card.dataset.link);
+    const bookTitle = card.querySelector('.book-title')?.textContent || 'kitob';
+    showPDFOptions(card.dataset.link, bookTitle);
   }
 });
 
@@ -510,9 +518,21 @@ uploadForm.addEventListener('submit', async (e) => {
       created: new Date()
     });
 
-    alert(isKirill ? '✅ Китоб муваффақиятли қўшилди!' : '✅ Kitob muvaffaqiyatli qo‘shildi!');
     progressWrap.hidden = true;
+    
+    // Success notification ko'rsatish (alert o'rniga)
+    const successMsg = document.createElement('div');
+    successMsg.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #00C9A7; color: white; padding: 1rem 2rem; border-radius: 8px; z-index: 3000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-weight: 600; animation: slideDown 0.3s ease;';
+    successMsg.textContent = isKirill ? '✅ Китоб муваффақиятли қўшилди!' : '✅ Kitob muvaffaqiyatli qo\'shildi!';
+    document.body.appendChild(successMsg);
+    
+    setTimeout(() => {
+      successMsg.style.animation = 'slideUp 0.3s ease';
+      setTimeout(() => successMsg.remove(), 300);
+    }, 2500);
+    
     uploadForm.reset();
+    // Admin rejimi saqlab turish
     // uploadSection.hidden = true;
   } catch(err) {
     console.error('❌ Xatolik:', err);
