@@ -558,6 +558,7 @@ body.admin-mode .card {
   padding: 2.5rem 2rem;
   border-radius: var(--radius);
   width: 100%;
+  max-width: 500px;
   text-align: center;
   transform: translateY(30px) scale(0.95);
   transition: transform var(--transition);
@@ -605,6 +606,32 @@ body.admin-mode .card {
   gap: 0.5rem;
 }
 
+/* Admin Password Modal Input */
+#adminPasswordInput {
+  padding: 0.8rem 1rem !important;
+  border-radius: 8px !important;
+  border: 1px solid #ddd !important;
+  width: 100% !important;
+  margin-bottom: 1.5rem !important;
+  font-size: 1rem !important;
+  box-sizing: border-box !important;
+  transition: all var(--transition);
+}
+[data-theme="light"] #adminPasswordInput {
+  background: #fff;
+  color: var(--text-light);
+}
+[data-theme="dark"] #adminPasswordInput {
+  background: #2d2d2d;
+  color: #e0e0e0;
+  border-color: #444 !important;
+}
+#adminPasswordInput:focus {
+  outline: none;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.2) !important;
+}
+
 /* Footer */
 footer {
   text-align: center;
@@ -641,16 +668,28 @@ footer {
 
 /* Mobil qurilmalar (768px dan kichik) uchun */
 @media (max-width: 768px) {
-  .category-btn,
+  .category-btn {
+    font-size: 1.15rem;
+    padding: 1.2rem 0.8rem;
+    width: 95%;
+    max-width: 95%;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    min-height: 60px;
+    height: auto;
+    line-height: 1.4;
+  }
+  
   .card {
     font-size: 1rem;
-    padding: 1rem;;
+    padding: 1rem 0.8rem;
     width: 90%;
     max-width: 90%;
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
-    min-height: 80px;
+    min-height: 70px;
     height: auto;
   }
   
@@ -660,6 +699,7 @@ footer {
   
   .header-actions {
     flex-direction: column;
+    gap: 0.8rem;
   }
   
   .header-actions input {
@@ -674,18 +714,60 @@ footer {
   
   .categories-row {
     padding: 1.2rem 0.5rem;
+    gap: 0.7rem;
   }
   
   #uploadSection {
-    padding: 1.5rem;
-    margin: 0 1rem 2rem;
+    padding: 1.5rem 1rem;
+    margin: 1.5rem auto 2rem;
+    max-width: 90%;
+    width: 90%;
+  }
+  
+  #uploadSection h2 {
+    font-size: 1.4rem;
+    margin-bottom: 1.2rem;
+  }
+  
+  #uploadForm input,
+  #uploadForm select {
+    padding: 0.9rem 0.8rem;
+    font-size: 1rem;
+  }
+  
+  #uploadForm .btn-primary {
+    padding: 1rem 1.2rem;
+    font-size: 1rem;
   }
 
   #categoryOverlay .grid {
     grid-template-columns: 1fr;
     gap: 0.8rem;
-    max-width: 400px;
+    max-width: 95%;
     margin: 0 auto;
+  }
+  
+  #overlayTitle {
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  body.admin-mode #booksContainer {
+    max-width: 95%;
+  }
+  
+  body.admin-mode .card {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .center {
+    margin: 1.5rem 0;
+  }
+  
+  .center .btn {
+    width: 90%;
+    max-width: 90%;
   }
 }
 
@@ -735,6 +817,7 @@ footer {
   background: var(--active-cat-bg);
   color: #fff;
   border: none;
+  position: relative;
 }
 .overlay .card:hover {
   transform: translateY(-3px);
@@ -752,8 +835,21 @@ footer {
   display: none;
 }
 
+.overlay .card .card-actions {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  margin: 0;
+  display: none;
+}
+
 body.admin-mode .overlay .card .card-actions {
   display: block;
+}
+
+body.admin-mode .overlay .card .card-actions .btn-danger {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
 }
 
 @keyframes fadeIn {
@@ -813,54 +909,162 @@ body.admin-mode .overlay .card .card-actions {
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
-/* Mobil qurilmalar uchun moslashuv */
-@media (max-width: 768px) {
-    .card {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        flex-wrap: wrap;
-    }
-
-    .book-title {
-        font-size: 1.1rem !important;
-        white-space: normal !important;
-        line-height: 1.5;
-        word-wrap: break-word;
-        word-break: break-word;
-        width: 100%;
-    }
-
-    #categoryOverlay .grid {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        max-width: 100%;
-        gap: 1rem;
-    }
-    
-    #categoryOverlay .grid .card {
-        width: 90% !important;
-        max-width: 90% !important;
-    }
-}
+/* Mobil qurilmalar uchun moslashuv (takrori - o'chirib tashlaymiz) */
 
 /* Kichik ekranlar (500px dan pastida) */
 @media (max-width: 500px) {
-    .card {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-height: 75px;
-        padding: 0.8rem;
-    }
-    
-    .book-title {
-        font-size: 1rem !important;
-        line-height: 1.4;
-    }
-    
-    #categoryOverlay .grid .card {
-        width: 95% !important;
-    }
+  .category-btn {
+    font-size: 1rem;
+    padding: 1rem 0.6rem;
+    width: 98%;
+    max-width: 98%;
+    min-height: 55px;
+  }
+  
+  .card {
+    font-size: 0.95rem;
+    padding: 0.9rem 0.6rem;
+    width: 95%;
+    min-height: 65px;
+  }
+  
+  header h1 {
+    font-size: 1.8rem;
+  }
+  
+  header .subtitle {
+    font-size: 1rem;
+  }
+  
+  .header-actions input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    font-size: 0.95rem;
+  }
+  
+  #uploadSection {
+    padding: 1rem 0.8rem;
+    max-width: 95%;
+    width: 95%;
+    margin: 1rem auto 1.5rem;
+  }
+  
+  #uploadSection h2 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+  }
+  
+  #uploadForm input,
+  #uploadForm select {
+    padding: 0.8rem 0.6rem;
+    font-size: 0.95rem;
+  }
+  
+  #uploadForm .btn-primary {
+    padding: 0.9rem 1rem;
+    font-size: 0.95rem;
+  }
+  
+  #overlayTitle {
+    font-size: 1.4rem;
+    margin-bottom: 1.2rem;
+  }
+  
+  body.admin-mode #booksContainer {
+    max-width: 98%;
+  }
+  
+  .center .btn {
+    width: 95%;
+    max-width: 95%;
+    font-size: 0.95rem;
+    padding: 0.9rem 1rem;
+  }
+  
+  .book-title {
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+  
+  #categoryOverlay .grid .card {
+    width: 95%;
+  }
+}
+
+/* Juda kichik ekranlar (360px va pastida) */
+@media (max-width: 360px) {
+  header {
+    min-height: 220px;
+    padding: 1.5rem 0.5rem;
+  }
+  
+  header h1 {
+    font-size: 1.6rem;
+  }
+
+  .categories-row {
+    padding: 0.8rem 0.3rem;
+    gap: 0.5rem;
+  }
+
+  .category-btn {
+    font-size: 0.9rem;
+    padding: 0.8rem 0.4rem;
+    width: 100%;
+    max-width: 100%;
+    min-height: 50px;
+  }
+  
+  .card {
+    font-size: 0.85rem;
+    padding: 0.8rem 0.4rem;
+    width: 100%;
+    min-height: 60px;
+  }
+
+  .grid {
+    gap: 0.8rem;
+    padding: 0.8rem;
+  }
+
+  #uploadSection {
+    padding: 0.8rem 0.6rem;
+    margin: 0.8rem auto 1rem;
+    max-width: 98%;
+  }
+  
+  #uploadSection h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  #uploadForm input,
+  #uploadForm select {
+    padding: 0.7rem 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  #uploadForm .btn-primary {
+    padding: 0.8rem 0.8rem;
+    font-size: 0.9rem;
+  }
+  
+  .center .btn {
+    width: 98%;
+    max-width: 98%;
+    font-size: 0.9rem;
+    padding: 0.8rem 0.8rem;
+  }
+  
+  #overlayTitle {
+    font-size: 1.2rem;
+  }
+  
+  .modal-content {
+    padding: 1.5rem 1rem;
+  }
+  
+  .modal-content h3 {
+    font-size: 1.1rem;
+  }
 }
