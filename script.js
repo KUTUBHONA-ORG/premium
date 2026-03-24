@@ -513,7 +513,7 @@ uploadForm.addEventListener('submit', async (e) => {
     alert(isKirill ? '✅ Китоб муваффақиятли қўшилди!' : '✅ Kitob muvaffaqiyatli qo‘shildi!');
     progressWrap.hidden = true;
     uploadForm.reset();
-    uploadSection.hidden = true;
+    // uploadSection.hidden = true;
   } catch(err) {
     console.error('❌ Xatolik:', err);
     alert(isKirill ? '❌ Хатолик: ' + err.message : '❌ Xatolik: ' + err.message);
