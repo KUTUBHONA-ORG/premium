@@ -69,9 +69,50 @@ let allBooks = [];
 let isAdmin = false;
 let currentPDF = "";
 let currentPDFTitle = "kitob"; // PDF yuklanish uchun fayl nomi
+let currentBookId = null; // PDF modal-da kitob ID-ni saqlab turish
+let currentBookFileURL = null; // PDF modal-da kitob file URL-ni saqlab turish
 let isKirill = true; // language state
 
-// =================== THEME ===================
+// =================== NOTIFICATION TOAST ===================
+function showNotification(message, type = 'success', duration = 2500) {
+  const notification = document.createElement('div');
+  const bgColor = type === 'success' ? '#00C9A7' : '#ff6b6b';
+  const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+  
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: ${bgColor};
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    z-index: 3000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-weight: 600;
+    animation: slideDown 0.3s ease;
+    max-width: 90%;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  `;
+  
+  notification.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.animation = 'slideUp 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, duration);
+}
+
+// =================== ADMIN MODAL ELEMENTS ===================
+const adminPasswordModal = document.getElementById('adminPasswordModal');
+const adminPasswordInput = document.getElementById('adminPasswordInput');
+const adminPasswordSubmit = document.getElementById('adminPasswordSubmit');
+const adminPasswordCancel = document.getElementById('adminPasswordCancel');
+const adminPasswordClose = document.getElementById('adminPasswordClose');
 function setTheme(theme) {
   html.setAttribute('data-theme', theme);
   localStorage.setItem('theme', theme);
@@ -391,11 +432,20 @@ window.addEventListener('popstate', (e) => {
 });
 
 // =================== PDF MODAL ===================
-function showPDFOptions(pdfURL, bookTitle = "kitob") {
+function showPDFOptions(pdfURL, bookTitle = "kitob", bookId = null, fileURL = null) {
   currentPDF = pdfURL;
   currentPDFTitle = bookTitle;
+  currentBookId = bookId;
+  currentBookFileURL = fileURL;
   downloadNotice.hidden = true;
   pdfModal.hidden = false;
+  
+  // Admin rejimda o'chirish tugmasini ko'rsatish
+  const deletePDFBtn = document.getElementById('deletePDFBtn');
+  if (deletePDFBtn) {
+    deletePDFBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+  }
+  
   setTimeout(() => pdfModal.classList.add('show'), 10);
 }
 
@@ -427,6 +477,18 @@ pdfModal.addEventListener('click', (e) => {
   }
 });
 
+// Delete button listener inside PDF modal
+const deletePDFBtn = document.getElementById('deletePDFBtn');
+if (deletePDFBtn) {
+  deletePDFBtn.addEventListener('click', () => {
+    if (currentBookId && currentBookFileURL) {
+      deleteBook(currentBookId, currentBookFileURL);
+      pdfModal.classList.remove('show');
+      setTimeout(() => { pdfModal.hidden = true; }, 300);
+    }
+  });
+}
+
 // =================== Delegate actions on main page cards ===================
 // Asosiy sahifada kitoblar bo'lmaydi, shuning uchun bu funksiya o'chirib tashlandi.
 
@@ -440,31 +502,94 @@ overlayBooks.addEventListener('click', (e) => {
   const card = e.target.closest('.card');
   if (card && card.dataset.link) {
     const bookTitle = card.querySelector('.book-title')?.textContent || 'kitob';
-    showPDFOptions(card.dataset.link, bookTitle);
+    showPDFOptions(card.dataset.link, bookTitle, card.dataset.id, card.dataset.link);
   }
 });
 
 // =================== ADMIN ===================
 adminToggleBtn.addEventListener('click', () => {
-  const password = prompt(isKirill 
-    ? "Китоб қўшиш ва ўчириш учун паролни киритинг:" 
-    : "Kitob qo‘shish va o‘chirish uchun parolni kiriting:");
-  
-  if (password === "XoLiSaMaLqIlGuVcHiLaRdAnQiL.") {
-    isAdmin = true;
-    document.body.classList.add("admin-mode"); // 🔥 qo‘shildi
-    uploadSection.hidden = false;
-    uploadSection.classList.add('reveal');
-    setTimeout(() => uploadSection.classList.add('show'), 10);
-
-    // admin rejimida asosiy sahifadagi barcha kitoblarni ko'rsatmaymiz
-    booksContainer.innerHTML = '';
-    if (activeCategory) filterBooks();
-
-    alert(isKirill ? "✅ Админ режимига муваффақиятли кирдингиз!" 
-                   : "✅ Admin rejimiga muvaffaqiyatli kirdingiz!");
+  if (isAdmin) {
+    setAdminMode(false);
   } else {
-    alert(isKirill ? "❌ Нотўғри парол!" : "❌ Noto‘g‘ri parol!");
+    adminPasswordModal.hidden = false;
+    adminPasswordInput.value = '';
+    adminPasswordInput.focus();
+    setTimeout(() => adminPasswordModal.classList.add('show'), 10);
+  }
+});
+
+// =================== ADMIN MODE FUNCTION ===================
+function setAdminMode(isAdminMode) {
+  isAdmin = isAdminMode;
+  uploadSection.hidden = !isAdminMode;
+  adminToggleBtn.textContent = isAdminMode ? 'Admin rejimdan chiqish ❌' : 'Admin Rejim ✅';
+  adminToggleBtn.style.background = isAdminMode ? '#ff6b6b' : '#00C9A7';
+  
+  // PDF modal-da delete button-ni yangilash
+  if (!pdfModal.hidden) {
+    const deletePDFBtn = document.getElementById('deletePDFBtn');
+    if (deletePDFBtn) {
+      deletePDFBtn.style.display = isAdminMode ? 'inline-flex' : 'none';
+    }
+  }
+  
+  // Admin rejimga otganda overlay yopish va kategoriya tozalash
+  if (isAdminMode) {
+    if (activeCategory) {
+      closeOverlay(true);
+    }
+    showNotification(
+      isKirill ? '✅ Admin rejimiga kirgansiz!' : '✅ You entered admin mode!',
+      'success'
+    );
+  } else {
+    showNotification(
+      isKirill ? '✅ Admin rejimdan chiqtingiz!' : '✅ You exited admin mode!',
+      'success'
+    );
+  }
+}
+
+// =================== ADMIN MODAL LISTENERS ===================
+adminPasswordSubmit.addEventListener('click', () => {
+  const password = adminPasswordInput.value.trim();
+  const correctPassword = 'XoLiSaMaLqIlGuVcHiLaRdAnQiL.';
+  
+  if (!password) {
+    showNotification(
+      isKirill ? '❌ Parol kiriting!' : '❌ Enter password!',
+      'error'
+    );
+    return;
+  }
+  
+  if (password === correctPassword) {
+    setAdminMode(true);
+    adminPasswordModal.classList.remove('show');
+    setTimeout(() => {
+      adminPasswordModal.hidden = true;
+    }, 300);
+  } else {
+    showNotification(
+      isKirill ? '❌ Parol noto\'g\'ri!' : '❌ Wrong password!',
+      'error'
+    );
+    adminPasswordInput.value = '';
+    adminPasswordInput.focus();
+  }
+});
+
+adminPasswordCancel.addEventListener('click', () => {
+  adminPasswordModal.classList.remove('show');
+  setTimeout(() => {
+    adminPasswordModal.hidden = true;
+  }, 300);
+  adminPasswordInput.value = '';
+});
+
+adminPasswordInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    adminPasswordSubmit.click();
   }
 });
 
@@ -545,15 +670,18 @@ uploadForm.addEventListener('submit', async (e) => {
 async function deleteBook(bookId, fileURL) {
     // 1. Eng muhim tekshiruv - admin rejimida bo'lmasa, hech narsa qilmaydi
     if (!isAdmin) {
-        alert(isKirill 
-            ? "❌ Sizda o‘chirish huquqi yo‘q! Faqat admin o‘chira oladi." 
-            : "❌ You don't have permission to delete! Only admin can delete.");
+        showNotification(
+            isKirill 
+                ? `❌ Sizda o'chirish huquqi yo'q! Faqat admin o'chira oladi.` 
+                : "❌ You don't have permission to delete! Only admin can delete.",
+            'error'
+        );
         return;
     }
 
     // 2. Ikki marta tasdiqlash (xato bosib qo‘ymaslik uchun)
     const confirmText = isKirill 
-        ? "Haqiqatan ham bu kitobni butunlay o‘chirmoqchimisiz?" 
+        ? `Haqiqatan ham bu kitobni butunlay o'chirmoqchimisiz?` 
         : "Are you sure you want to permanently delete this book?";
 
     if (!confirm(confirmText)) return;
@@ -578,14 +706,20 @@ async function deleteBook(bookId, fileURL) {
             }
         }
 
-        alert(isKirill ? '✅ Kitob muvaffaqiyatli o‘chirildi!' : '✅ Book deleted successfully!');
+        showNotification(
+            isKirill ? `✅ Kitob muvaffaqiyatli o'chirildi!` : '✅ Book deleted successfully!',
+            'success'
+        );
         
         // Sahifani yangilash
         loadBooks();   // yoki filterBooks() agar overlay ochiq bo‘lsa
 
     } catch (err) {
         console.error('Delete xatolik:', err);
-        alert(isKirill ? '❌ O‘chirishda xatolik yuz berdi' : '❌ Error while deleting');
+        showNotification(
+            isKirill ? `❌ O'chirishda xatolik yuz berdi` : '❌ Error while deleting',
+            'error'
+        );
     }
 }
 
