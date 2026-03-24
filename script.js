@@ -1,3 +1,18 @@
+// Splash skrinni har qanday holatda ham o'chirishni kafolatlash
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const splashElement = document.getElementById('splash');
+    if (splashElement) {
+      splashElement.classList.add('splash-fade-out');
+      setTimeout(() => {
+        splashElement.remove();
+        // Agar animatsiyalar bo'lsa ularni ishga tushirish
+        if (typeof revealAll === "function") revealAll();
+      }, 800);
+    }
+  }, 2800); 
+});
+
 // =================== FIREBASE INIT ===================
 const firebaseConfig = {
   apiKey: "AIzaSyB5DBP6zUWlfrbH1AHGE9TRpNewh2eUzD4",
@@ -10,10 +25,11 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 // =================== SUPABASE STORAGE INIT ===================
-const SUPABASE_URL = 'https://nnrhihvwswibdpnykgwp.supabase.co'; // o'zingiz URL qo'ying
+const SUPABASE_URL = 'https://nnrhivhwswibdpnygkwp.supabase.co'; // o'zingiz URL qo'ying
 const SUPABASE_ANON_KEY = 'sb_publishable_7xApUVAMQbxv9AhNfVm2NQ_ENrprB9n'; // hozirgi publishable key
 const SUPABASE_BUCKET = 'books';
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// O'zgaruvchi nomini _supabase yoki supabaseClient deb o'zgartiring
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // =================== ELEMENTS ===================
 const html = document.documentElement;
@@ -272,9 +288,9 @@ function renderBooks(list, container) {
 
 // =================== FILTERING ===================
 function filterBooks() {
-  // Asosiy sahifada kitoblar bo‘lmasligi uchun bu funksiya faqat overlayBooks uchun ishlaydi
+  const q = (searchInput.value || '').toLowerCase();
+
   if (activeCategory) {
-    const q = (searchInput.value || '').toLowerCase();
     const filtered = allBooks.filter(b => 
       b.category === activeCategory && 
       (!q || (b.title && b.title.toLowerCase().includes(q)) || 
@@ -282,8 +298,12 @@ function filterBooks() {
     );
     renderBooks(filtered, overlayBooks);
   } else {
-    // Asosiy sahifa bo‘sh bo‘ladi
-    booksContainer.innerHTML = '';
+    const filtered = allBooks.filter(b => 
+      !q ||
+      (b.title && b.title.toLowerCase().includes(q)) ||
+      (b.description && b.description.toLowerCase().includes(q))
+    );
+    renderBooks(filtered, booksContainer);
   }
 }
 
@@ -464,7 +484,7 @@ uploadForm.addEventListener('submit', async (e) => {
     progressBar.style.width = '0%';
     progressBar.textContent = '0%';
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await _supabase.storage
       .from(SUPABASE_BUCKET)
       .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
@@ -472,7 +492,7 @@ uploadForm.addEventListener('submit', async (e) => {
       throw uploadError;
     }
 
-    const { data: publicUrlData, error: publicUrlError } = supabase.storage
+    const { data: publicUrlData, error: publicUrlError } = _supabase.storage
       .from(SUPABASE_BUCKET)
       .getPublicUrl(filePath);
 
@@ -521,7 +541,7 @@ async function deleteBook(bookId, fileURL) {
     await bookDoc.delete();
 
     if (path) {
-      const { error: deleteError } = await supabase.storage
+      const { error: deleteError } = await _supabase.storage
         .from(SUPABASE_BUCKET)
         .remove([path]);
 
@@ -534,7 +554,7 @@ async function deleteBook(bookId, fileURL) {
         const urlObj = new URL(fileURL);
         const key = urlObj.pathname.split('/').pop();
         if (key) {
-          await supabase.storage.from(SUPABASE_BUCKET).remove([key]);
+          await _supabase.storage.from(SUPABASE_BUCKET).remove([key]);
         }
       } catch(e) {
         console.warn('Fallback delete path topilmadi:', e);
