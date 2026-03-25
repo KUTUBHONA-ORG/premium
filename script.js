@@ -1,18 +1,3 @@
-// Splash skrinni har qanday holatda ham o'chirishni kafolatlash
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    const splashElement = document.getElementById('splash');
-    if (splashElement) {
-      splashElement.classList.add('splash-fade-out');
-      setTimeout(() => {
-        splashElement.remove();
-        // Agar animatsiyalar bo'lsa ularni ishga tushirish
-        if (typeof revealAll === "function") revealAll();
-      }, 800);
-    }
-  }, 2800); 
-});
-
 // =================== FIREBASE INIT ===================
 const firebaseConfig = {
   apiKey: "AIzaSyB5DBP6zUWlfrbH1AHGE9TRpNewh2eUzD4",
@@ -71,7 +56,9 @@ let currentPDF = "";
 let currentPDFTitle = "kitob"; // PDF yuklanish uchun fayl nomi
 let currentBookId = null; // PDF modal-da kitob ID-ni saqlab turish
 let currentBookFileURL = null; // PDF modal-da kitob file URL-ni saqlab turish
+let currentBlobURL = null; // Blob URL for downloaded PDF
 let isKirill = true; // language state
+let booksUnsubscribe = null; // Firestore listener unsubscribe function
 
 // =================== NOTIFICATION TOAST ===================
 function showNotification(message, type = 'success', duration = 2500) {
@@ -105,6 +92,43 @@ function showNotification(message, type = 'success', duration = 2500) {
     notification.style.animation = 'slideUp 0.3s ease';
     setTimeout(() => notification.remove(), 300);
   }, duration);
+}
+
+// =================== CUSTOM CONFIRM DIALOG ===================
+function showConfirm(title, message) {
+  return new Promise((resolve) => {
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmTitle = document.getElementById('confirmTitle');
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmOk = document.getElementById('confirmOk');
+    const confirmCancel = document.getElementById('confirmCancel');
+    
+    confirmTitle.textContent = title;
+    confirmMessage.textContent = message;
+    confirmOk.textContent = isKirill ? 'Ҳа' : 'Yes';
+    confirmCancel.textContent = isKirill ? 'Йўқ' : 'No';
+    confirmModal.hidden = false;
+    confirmModal.classList.add('show');
+    
+    const handleOk = () => {
+      confirmModal.classList.remove('show');
+      setTimeout(() => confirmModal.hidden = true, 300);
+      confirmOk.removeEventListener('click', handleOk);
+      confirmCancel.removeEventListener('click', handleCancel);
+      resolve(true);
+    };
+    
+    const handleCancel = () => {
+      confirmModal.classList.remove('show');
+      setTimeout(() => confirmModal.hidden = true, 300);
+      confirmOk.removeEventListener('click', handleOk);
+      confirmCancel.removeEventListener('click', handleCancel);
+      resolve(false);
+    };
+    
+    confirmOk.addEventListener('click', handleOk);
+    confirmCancel.addEventListener('click', handleCancel);
+  });
 }
 
 // =================== ADMIN MODAL ELEMENTS ===================
@@ -141,10 +165,10 @@ const TRANSLATIONS = {
     'Премиум Кутубхона': 'Premium Kutubxona',
     'Сизга китоб тавсия қиламиз!': 'Sizga kitob tavsiya qilamiz!',
     'Қайси китобни қидиряпсиз?': 'Qaysi kitobni qidiryapsiz?',
-    'Қоронғу режим': 'Qorong‘u rejim',
-    'Ёруғ режим': 'Yorug‘ rejim',
+    'Қоронғу режим': 'Qorong\'u rejim',
+    'Ёруғ режим': 'Yorug\' rejim',
     'Тил': 'Til',
-    'Қуръони Карим': 'Qur’oni Karim',
+    'Қуръони Карим': 'Qur\'oni Karim',
     'Тафсир китоблари': 'Tafsir kitoblari',
     'Ҳадис китоблари': 'Hadis kitoblari',
     'Фиқҳий китоблари': 'Fiqhiy kitoblari',
@@ -154,33 +178,33 @@ const TRANSLATIONS = {
     'Саҳобалар ҳаёти': 'Sahobalar hayoti',
     'Ахлоқ ва тарбия': 'Axloq va tarbiya',
     'Дуо ва зикрлар': 'Duo va zikrlar',
-    'Ал-Ваъй журнали': 'Al-Va’y jurnali',
+    'Ал-Ваъй журнали': 'Al-Va\'y jurnali',
     'Ҳизб китоблари': 'Hizb kitoblari',
     'Admin Rejim': 'Admin Rejim',
-    'Янги китоб қўшиш': 'Yangi kitob qo‘shish',
+    'Янги китоб қўшиш': 'Yangi kitob qoshish',
     'Китоб номи': 'Kitob nomi',
     'Тавсиф': 'Tavsif',
     'Категория танланг': 'Kategoriya tanlang',
-    'Китоб қўшиш': 'Kitob qo‘shish',
+    'Китоб қўшиш': 'Kitob qoshish',
     'PDF билан нима қилмоқчисиз?': 'PDF bilan nima qilmoqchisiz?',
     'Браузерда очиш': 'Brauzerda ochish',
     'Юклаб олиш': 'Yuklab olish',
     'PDF қурилмангизга муваффақиятли юкланди!': 'PDF qurilmangizga muvaffaqiyatli yuklandi!',
     'Юкланган PDF\'ни очиш': 'Yuklangan PDF\'ni ochish',
-    'Ҳозирча бу ерда китоб йўқ...': 'Hozircha bu yerda kitob yo‘q...',
+    'Ҳозирча бу ерда китоб йўқ...': 'Hozircha bu yerda kitob yo\'q...',
     'PDF': 'PDF',
-    'Ўчириш': 'O‘chirish',
-    'Китоб қўшиш ва ўчириш учун паролни киритинг:': 'Kitob qo‘shish va o‘chirish uchun parolni kiriting:',
+    'Ўчириш': 'O\'chirish',
+    'Китоб қўшиш ва ўчириш учун паролни киритинг:': 'Kitob qo\'shish va o\'chirish uchun parolni kiriting:',
     'Админ режимига муваффақиятли кирдингиз!': 'Admin rejimiga muvaffaqiyatli kirdingiz!',
-    'Нотўғри парол!': 'Noto‘g‘ri parol!',
+    'Нотўғри парол!': 'Noto\'g\'ri parol!',
     'PDF файл танланмаган!': 'PDF fayl tanlanmagan!',
     'Юклашда хатолик: ': 'Yuklashda xatolik: ',
-    'Китоб муваффақиятли қўшилди!': 'Kitob muvaffaqiyatli qo‘shildi!',
+    'Китоб муваффақиятли қўшилди!': 'Kitob muvaffaqiyatli qo\'shildi!',
     'Хатолик: ': 'Xatolik: ',
-    'Сизда ўчириш ҳуқуқи йўқ!': 'Sizda o‘chirish huquqi yo‘q!',
-    'Ҳақиқатан ҳам бу китобни ўчирмоқчимисиз?': 'Haqiqatan ham bu kitobni o‘chirmoqchimisiz?',
-    'Китоб муваффақиятли ўчирилди!': 'Kitob muvaffaqiyatli o‘chirildi!',
-    'Ўчиришда хатолик: ': 'O‘chirishда хатолик: '
+    'Сизда ўчириш ҳуқуқи йўқ!': 'Sizda o\'chirish huquqi yo\'q!',
+    'Ҳақиқатан ҳам бу китобни ўчирмоқчимисиз?': 'Haqiqatan ham bu kitobni o\'chirmoqchimisiz?',
+    'Китоб муваффақиятли ўчирилди!': 'Kitob muvaffaqiyatli o\'chirildi!',
+    'Ўчиришда хатолик: ': 'O\'chirishда хатолик: '
 };
 
 function setLanguage(isKirillParam) {
@@ -303,16 +327,12 @@ function runSplash() {
 // =================== BOOK CARD TEMPLATE ===================
 function bookCardTemplate(book) {
     const title = isKirill ? book.title : (TRANSLATIONS[book.title] || book.title);
-    const description = isKirill ? book.description : (TRANSLATIONS[book.description] || book.description);
-    const category = isKirill ? book.category : (TRANSLATIONS[book.category] || book.category);
-
     return `
         <article class="card reveal" data-id="${book.id}" data-link="${book.link}" data-category="${book.category}">
             <div class="book-title">${title || 'Номсиз китоб'}</div>
-            
             ${isAdmin ? `
             <div class="card-actions">
-                <button class="btn btn-danger" data-action="delete" data-id="${book.id}" data-link="${book.link}">
+                <button class="btn btn-danger" data-action="delete" data-id="${book.id}" data-link="${book.link}" type="button">
                     <i class="fas fa-trash"></i> ${isKirill ? 'Ўчириш' : 'Delete'}
                 </button>
             </div>` : ''}
@@ -321,7 +341,7 @@ function bookCardTemplate(book) {
 }
 
 function renderBooks(list, container) {
-  const noBooksMessage = isKirill ? `Ҳозирча бу ерда китоб йўқ...` : `Hozircha bu yerda kitob yo‘q...`;
+  const noBooksMessage = isKirill ? `Ҳозирча бу ерда китоб йўқ...` : `Hozircha bu yerda kitob yo'q...`;
   container.innerHTML = list.length 
     ? list.map(bookCardTemplate).join('') 
     : `<p class="no-books-message">${noBooksMessage}</p>`;
@@ -341,7 +361,7 @@ function filterBooks() {
     );
     renderBooks(filtered, overlayBooks);
   } else {
-    // Bosh sahifada faqat qidirish bo'yicha kitoblarni chiqarish
+    // Bosh sahifada faqat qidirsh bo'yicha kitoblarni chiqarish
     if (q) {
       // Qidiruv qidirsa kitoblarni chiqar
       const filtered = allBooks.filter(b => 
@@ -388,7 +408,7 @@ function openOverlay(category, pushHistory = true) {
     overlay.hidden = false;
     setTimeout(() => overlay.classList.add('show'), 10);
 
-    if (pushHistory) {
+    if (pushHistory && window.location.protocol.startsWith('http')) {
       // push an entry to history so phone back button can close overlay
       const slug = category.replace(/\s+/g, '-').toLowerCase();
       history.pushState({ overlayOpen: true, category }, "", `#category-${slug}`);
@@ -437,13 +457,25 @@ function showPDFOptions(pdfURL, bookTitle = "kitob", bookId = null, fileURL = nu
   currentPDFTitle = bookTitle;
   currentBookId = bookId;
   currentBookFileURL = fileURL;
+  currentBlobURL = null; // Reset blob URL
   downloadNotice.hidden = true;
   pdfModal.hidden = false;
   
   // Admin rejimda o'chirish tugmasini ko'rsatish
   const deletePDFBtn = document.getElementById('deletePDFBtn');
   if (deletePDFBtn) {
-    deletePDFBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+    // Eski onclick hodisalari o'chirib tashlash
+    deletePDFBtn.onclick = null;
+    
+    if (isAdmin) {
+      deletePDFBtn.style.display = 'inline-flex';
+      // Yangi event listener o'rnatish
+      deletePDFBtn.onclick = async () => {
+        await deleteBook(bookId); // currentBookId emas, argumentdan kelgan bookId
+      };
+    } else {
+      deletePDFBtn.style.display = 'none';
+    }
   }
   
   setTimeout(() => pdfModal.classList.add('show'), 10);
@@ -453,21 +485,50 @@ openPDFBtn.addEventListener('click', () => {
   if (currentPDF) window.open(currentPDF, '_blank'); 
 });
 
-downloadPDFBtn.addEventListener('click', () => {
-  if (!currentPDF) return; 
-  const a = document.createElement('a'); 
-  a.href = currentPDF; 
-  a.download = `${currentPDFTitle}.pdf`; 
-  document.body.appendChild(a); 
-  a.click(); 
-  a.remove();
-  openDownloaded.href = currentPDF; 
-  downloadNotice.hidden = false;
+downloadPDFBtn.addEventListener('click', async () => {
+  if (!currentPDF) {
+    showNotification('PDF URL mavjud emas!', 'error');
+    return;
+  }
+
+  try {
+    // PDF-ni fetch qilish
+    const response = await fetch(currentPDF);
+    if (!response.ok) throw new Error('PDF yuklanmadi');
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+
+    // Yuklab olish uchun link yaratish
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentPDFTitle}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    // Blob URL-ni saqlash va ochish tugmasiga o'rnatish
+    currentBlobURL = url;
+    openDownloaded.href = url;
+
+    // Muvaffaqiyat xabari
+    showNotification('PDF qurilmangizga muvaffaqiyatli yuklandi!', 'success');
+    downloadNotice.hidden = false;
+  } catch (error) {
+    showNotification('Yuklashda xatolik: ' + error.message, 'error');
+  }
 });
 
 modalClose.addEventListener('click', () => {
   pdfModal.classList.remove('show');
-  setTimeout(() => { pdfModal.hidden = true; }, 300);
+  setTimeout(() => { 
+    pdfModal.hidden = true; 
+    // Blob URL-ni tozalash
+    if (currentBlobURL) {
+      URL.revokeObjectURL(currentBlobURL);
+      currentBlobURL = null;
+    }
+  }, 300);
 });
 
 pdfModal.addEventListener('click', (e) => { 
@@ -477,34 +538,43 @@ pdfModal.addEventListener('click', (e) => {
   }
 });
 
-// Delete button listener inside PDF modal
-const deletePDFBtn = document.getElementById('deletePDFBtn');
-if (deletePDFBtn) {
-  deletePDFBtn.addEventListener('click', () => {
-    if (currentBookId && currentBookFileURL) {
-      deleteBook(currentBookId, currentBookFileURL);
-      pdfModal.classList.remove('show');
-      setTimeout(() => { pdfModal.hidden = true; }, 300);
-    }
-  });
-}
+// Delete button listener removed - now handled in showPDFOptions function
 
 // =================== Delegate actions on main page cards ===================
 // Asosiy sahifada kitoblar bo'lmaydi, shuning uchun bu funksiya o'chirib tashlandi.
 
-// same for overlayBooks (cards inside overlay)
+// =================== CLICK HANDLERS ===================
 overlayBooks.addEventListener('click', (e) => {
-  const delBtn = e.target.closest('[data-action="delete"]');
-  if (delBtn) {
-    deleteBook(delBtn.dataset.id, delBtn.dataset.link);
+  const deleteBtn = e.target.closest('[data-action="delete"]');
+  console.log('overlayBooks click', e.target, 'deleteBtn', deleteBtn);
+
+  if (deleteBtn) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (!isAdmin) {
+      showNotification(isKirill ? '❌ Admin rejимига кiring!' : '❌ Admin mode required!', 'error');
+      return;
+    }
+
+    const bookId = deleteBtn.dataset.id || deleteBtn.closest('.card')?.dataset.id;
+    if (!bookId) {
+      showNotification(isKirill ? '❌ Китоб ID топилмади' : '❌ Book ID not found', 'error');
+      console.error('deleteBtn missing bookId', deleteBtn);
+      return;
+    }
+
+    console.log('DELETE BUTTON CLICK', { bookId });
+    deleteBook(bookId);
     return;
   }
+  
   const card = e.target.closest('.card');
   if (card && card.dataset.link) {
     const bookTitle = card.querySelector('.book-title')?.textContent || 'kitob';
     showPDFOptions(card.dataset.link, bookTitle, card.dataset.id, card.dataset.link);
   }
-});
+}, false);
 
 // =================== ADMIN ===================
 adminToggleBtn.addEventListener('click', () => {
@@ -521,32 +591,25 @@ adminToggleBtn.addEventListener('click', () => {
 // =================== ADMIN MODE FUNCTION ===================
 function setAdminMode(isAdminMode) {
   isAdmin = isAdminMode;
+  document.body.classList.toggle('admin-mode', isAdminMode);
   uploadSection.hidden = !isAdminMode;
-  adminToggleBtn.textContent = isAdminMode ? 'Admin rejimdan chiqish ❌' : 'Admin Rejim ✅';
+  
+  const icon = adminToggleBtn.querySelector('i');
+  const iconHTML = icon ? icon.outerHTML : '<i class="fas fa-key"></i>';
+  const btnText = isAdminMode ? 'Admin rejimdan chiqish' : 'Admin Rejim';
+  adminToggleBtn.innerHTML = `${iconHTML} ${btnText}`;
   adminToggleBtn.style.background = isAdminMode ? '#ff6b6b' : '#00C9A7';
   
-  // PDF modal-da delete button-ni yangilash
-  if (!pdfModal.hidden) {
-    const deletePDFBtn = document.getElementById('deletePDFBtn');
-    if (deletePDFBtn) {
-      deletePDFBtn.style.display = isAdminMode ? 'inline-flex' : 'none';
-    }
+  if (activeCategory) {
+    const filtered = allBooks.filter(b => b.category === activeCategory);
+    renderBooks(filtered, overlayBooks);
   }
   
-  // Admin rejimga otganda overlay yopish va kategoriya tozalash
   if (isAdminMode) {
-    if (activeCategory) {
-      closeOverlay(true);
-    }
-    showNotification(
-      isKirill ? '✅ Admin rejimiga kirgansiz!' : '✅ You entered admin mode!',
-      'success'
-    );
+    showNotification(isKirill ? '✅ Admin rejimiga kirgansiz!' : '✅ You entered admin mode!', 'success');
   } else {
-    showNotification(
-      isKirill ? '✅ Admin rejimdan chiqtingiz!' : '✅ You exited admin mode!',
-      'success'
-    );
+    if (activeCategory) closeOverlay(true);
+    showNotification(isKirill ? '✅ Admin rejimdan chiqtingiz!' : '✅ You exited admin mode!', 'success');
   }
 }
 
@@ -602,7 +665,10 @@ uploadForm.addEventListener('submit', async (e) => {
   const file = document.getElementById('bookFile').files[0];
   
   if (!file) { 
-    alert(isKirill ? '❌ PDF файл танланмаган!' : '❌ PDF fayl tanlanmagan!'); 
+    showNotification(
+      isKirill ? '❌ PDF файл танланмаган!' : '❌ PDF fayl tanlanmagan!',
+      'error'
+    );
     return; 
   }
   
@@ -614,6 +680,14 @@ uploadForm.addEventListener('submit', async (e) => {
     progressWrap.hidden = false;
     progressBar.style.width = '0%';
     progressBar.textContent = '0%';
+    
+    // Simulate upload progress
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      if (progress < 90) progress += Math.random() * 30;
+      progressBar.style.width = Math.min(progress, 90) + '%';
+      progressBar.textContent = Math.floor(Math.min(progress, 90)) + '%';
+    }, 300);
 
     const { data: uploadData, error: uploadError } = await _supabase.storage
       .from(SUPABASE_BUCKET)
@@ -632,6 +706,11 @@ uploadForm.addEventListener('submit', async (e) => {
     }
 
     const url = publicUrlData.publicUrl;
+    
+    // Complete the progress bar
+    clearInterval(progressInterval);
+    progressBar.style.width = '100%';
+    progressBar.textContent = '100%';
 
     await firebase.firestore().collection('books').add({
       title,
@@ -645,90 +724,101 @@ uploadForm.addEventListener('submit', async (e) => {
 
     progressWrap.hidden = true;
     
-    // Success notification ko'rsatish (alert o'rniga)
-    const successMsg = document.createElement('div');
-    successMsg.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #00C9A7; color: white; padding: 1rem 2rem; border-radius: 8px; z-index: 3000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-weight: 600; animation: slideDown 0.3s ease;';
-    successMsg.textContent = isKirill ? '✅ Китоб муваффақиятли қўшилди!' : '✅ Kitob muvaffaqiyatli qo\'shildi!';
-    document.body.appendChild(successMsg);
-    
-    setTimeout(() => {
-      successMsg.style.animation = 'slideUp 0.3s ease';
-      setTimeout(() => successMsg.remove(), 300);
-    }, 2500);
+    // Show success using consistent notification function
+    showNotification(
+      isKirill ? '✅ Китоб муваффақиятли қўшилди!' : '✅ Book successfully added!',
+      'success',
+      3000
+    );
     
     uploadForm.reset();
     // Admin rejimi saqlab turish
     // uploadSection.hidden = true;
   } catch(err) {
-    console.error('❌ Xatolik:', err);
-    alert(isKirill ? '❌ Хатолик: ' + err.message : '❌ Xatolik: ' + err.message);
+    console.error('Upload error:', err);
+    if (typeof progressInterval !== 'undefined') clearInterval(progressInterval);
     progressWrap.hidden = true;
+    showNotification(
+      isKirill ? '❌ Хатолик: ' + err.message : '❌ Error: ' + err.message,
+      'error'
+    );
   }
 });
 
-// =================== DELETE ===================
-async function deleteBook(bookId, fileURL) {
-    // 1. Eng muhim tekshiruv - admin rejimida bo'lmasa, hech narsa qilmaydi
-    if (!isAdmin) {
-        showNotification(
-            isKirill 
-                ? `❌ Sizda o'chirish huquqi yo'q! Faqat admin o'chira oladi.` 
-                : "❌ You don't have permission to delete! Only admin can delete.",
-            'error'
-        );
-        return;
+// =================== DELETE BOOK ===================
+async function deleteBook(bookId) {
+  if (!isAdmin) {
+    showNotification(isKirill ? '❌ Admin rejimida emas!' : '❌ Not in admin mode!', 'error');
+    return;
+  }
+
+  if (!bookId) {
+    showNotification(isKirill ? '❌ ID топилмади' : '❌ ID not found', 'error');
+    return;
+  }
+
+  const db = firebase.firestore();
+  const docRef = db.collection('books').doc(bookId);
+  const doc = await docRef.get();
+
+  if (!doc.exists) {
+    showNotification(isKirill ? '❌ Китоб топилмади' : '❌ Book not found', 'error');
+    return;
+  }
+
+  const bookTitle = doc.data()?.title || (isKirill ? 'kitob' : 'book');
+
+  const confirmDelete = await showConfirm(
+    isKirill ? '⚠️ Огохлантириш!' : '⚠️ Delete?',
+    isKirill
+      ? `Сиз ростдан ҳам "${bookTitle}" китобини ўчириб юбормоқчимисиз?`
+      : `Are you sure you want to delete "${bookTitle}"?`
+  );
+
+  if (!confirmDelete) return;
+
+  try {
+    
+    if (!doc.exists) {
+      showNotification(isKirill ? '❌ Китоб топилмади' : '❌ Book not found', 'error');
+      return;
     }
 
-    // 2. Ikki marta tasdiqlash (xato bosib qo‘ymaslik uchun)
-    const confirmText = isKirill 
-        ? `Haqiqatan ham bu kitobni butunlay o'chirmoqchimisiz?` 
-        : "Are you sure you want to permanently delete this book?";
-
-    if (!confirm(confirmText)) return;
-
-    try {
-        const bookDoc = firebase.firestore().collection('books').doc(bookId);
-        const doc = await bookDoc.get();
-        const bookData = doc.data();
-        const path = bookData ? bookData.path : null;
-
-        // Firestore dan o‘chirish
-        await bookDoc.delete();
-
-        // Supabase Storage dan ham o‘chirish
-        if (path) {
-            const { error: deleteError } = await _supabase.storage
-                .from(SUPABASE_BUCKET)
-                .remove([path]);
-
-            if (deleteError) {
-                console.warn('Storage o‘chirishda xatolik:', deleteError);
-            }
-        }
-
-        showNotification(
-            isKirill ? `✅ Kitob muvaffaqiyatli o'chirildi!` : '✅ Book deleted successfully!',
-            'success'
-        );
-        
-        // Sahifani yangilash
-        loadBooks();   // yoki filterBooks() agar overlay ochiq bo‘lsa
-
-    } catch (err) {
-        console.error('Delete xatolik:', err);
-        showNotification(
-            isKirill ? `❌ O'chirishda xatolik yuz berdi` : '❌ Error while deleting',
-            'error'
-        );
+    const path = doc.data().path;
+    
+    // 1. Firestore-dan o'chirish
+    await docRef.delete();
+    
+    // 2. Supabase Storage-dan o'chirish (agar path bo'lsa)
+    if (path) {
+      const { error: storageError } = await _supabase.storage
+        .from(SUPABASE_BUCKET)
+        .remove([path]);
+      if (storageError) console.error("Storage delete error:", storageError);
     }
+
+    // 3. UI yangilash
+    allBooks = allBooks.filter(b => b.id !== bookId);
+    filterBooks(); // Ro'yxatni qayta filtrlash
+
+    // Modalni yopish
+    pdfModal.classList.remove('show');
+    setTimeout(() => { pdfModal.hidden = true; }, 300);
+    
+    showNotification(isKirill ? '✅ Ўчирилди!' : '✅ Deleted!', 'success');
+  } catch (err) {
+    console.error(err);
+    showNotification(isKirill ? `❌ Хатолик: ${err.message}` : `❌ Error: ${err.message}`, 'error');
+  }
 }
 
-// =================== FIRESTORE SYNC ===================
+// =================== FIRESTORE ===================
 function loadBooks() {
-  firebase.firestore().collection('books').onSnapshot(snap => {
+  if (booksUnsubscribe) booksUnsubscribe();
+  booksUnsubscribe = firebase.firestore().collection('books').onSnapshot(snap => {
     allBooks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    booksContainer.innerHTML = ""; // Asosiy sahifadagi kitoblarni doimiy bo'sh qoldirish
-  }, err => console.error('❌ Firestore xatolik:', err));
+    booksContainer.innerHTML = '';
+  });
 }
 
 // =================== REVEAL ON SCROLL ===================
