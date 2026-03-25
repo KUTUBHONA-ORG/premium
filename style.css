@@ -373,15 +373,23 @@ header .subtitle {
   top: 0.65rem;
   right: 0.65rem;
   margin: 0;
+  display: none;
+  z-index: 10;
 }
 
 body.admin-mode .card-actions {
-  display: block;
+  display: flex;
+  gap: 0.5rem;
 }
 
 body.admin-mode .card-actions .btn-danger {
   padding: 0.4rem 0.8rem;
   font-size: 0.85rem;
+  cursor: pointer;
+}
+
+body.admin-mode .card-actions .btn-danger:not(:hover) {
+  pointer-events: auto;
 }
 
 
