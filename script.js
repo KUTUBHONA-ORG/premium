@@ -138,13 +138,23 @@ const adminPasswordSubmit = document.getElementById('adminPasswordSubmit');
 const adminPasswordCancel = document.getElementById('adminPasswordCancel');
 const adminPasswordClose = document.getElementById('adminPasswordClose');
 function setTheme(theme) {
+  // 1. Klassni html elementiga qo'shish (specificity oshadi)
+  html.classList.add('theme-transitioning');
+  
+  // 2. Mavzuni darhol o'zgartirish
   html.setAttribute('data-theme', theme);
   localStorage.setItem('theme', theme);
+  
   const themeText = {
     'light': '<i class="fas fa-moon"></i> Қоронғу режим',
     'dark': '<i class="fas fa-sun"></i> Ёруғ режим'
   };
   toggleThemeBtn.innerHTML = themeText[theme];
+  
+  // 3. Animatsiya tugagach klassni olib tashlash (1200ms - CSS vaqtiga mos)
+  setTimeout(() => {
+    html.classList.remove('theme-transitioning');
+  }, 1200);
 }
 
 function loadTheme() {
@@ -154,7 +164,6 @@ function loadTheme() {
 
 toggleThemeBtn.addEventListener('click', () => {
   const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  document.body.animate([{ filter:'brightness(1.0)' },{ filter:'brightness(1.06)' },{ filter:'brightness(1.0)'}], { duration: 320 });
   setTheme(next);
 });
 
@@ -208,63 +217,73 @@ const TRANSLATIONS = {
 };
 
 function setLanguage(isKirillParam) {
-    isKirill = isKirillParam;
-    localStorage.setItem('language', isKirill ? 'kirill' : 'lotin');
+    // Animatsiya boshlash
+    document.body.classList.add('language-transitioning');
     
-    // Matnli elementlarni yangilash (category-btnlarni keyin qayta o'rnatamiz, shu sababli ulardan avval ajratib olamiz)
-    document.querySelectorAll('[data-original-text]:not(.category-btn)').forEach(el => {
-        const key = el.getAttribute('data-original-text');
-        el.textContent = isKirill ? key : (TRANSLATIONS[key] || key);
-    });
+    setTimeout(() => {
+        isKirill = isKirillParam;
+        localStorage.setItem('language', isKirill ? 'kirill' : 'lotin');
+    
+        // Matnli elementlarni yangilash (category-btnlarni keyin qayta o'rnatamiz, shu sababli ulardan avval ajratib olamiz)
+        document.querySelectorAll('[data-original-text]:not(.category-btn)').forEach(el => {
+            const key = el.getAttribute('data-original-text');
+            el.textContent = isKirill ? key : (TRANSLATIONS[key] || key);
+        });
 
-    // Input placeholderlarini yangilash
-    document.querySelectorAll('input[data-original-placeholder]').forEach(input => {
-        const placeholderKey = input.getAttribute('data-original-placeholder');
-        input.placeholder = isKirill ? placeholderKey : (TRANSLATIONS[placeholderKey] || placeholderKey);
-    });
+        // Input placeholderlarini yangilash
+        document.querySelectorAll('input[data-original-placeholder]').forEach(input => {
+            const placeholderKey = input.getAttribute('data-original-placeholder');
+            input.placeholder = isKirill ? placeholderKey : (TRANSLATIONS[placeholderKey] || placeholderKey);
+        });
 
-    // Select optionlarini yangilash
-    document.querySelectorAll('select option').forEach(option => {
-        const originalOptionText = option.getAttribute('data-original-text') || option.textContent.trim();
-        if (!option.hasAttribute('data-original-text')) {
-            option.setAttribute('data-original-text', originalOptionText);
+        // Select optionlarini yangilash
+        document.querySelectorAll('select option').forEach(option => {
+            const originalOptionText = option.getAttribute('data-original-text') || option.textContent.trim();
+            if (!option.hasAttribute('data-original-text')) {
+                option.setAttribute('data-original-text', originalOptionText);
+            }
+            const optionKey = option.getAttribute('data-original-text');
+            option.textContent = isKirill ? optionKey : (TRANSLATIONS[optionKey] || optionKey);
+        });
+        
+        // Maxsus tugmalarni yangilash (iconlari bor)
+        const updateButtonText = (btn, textKey) => {
+            const icon = btn.querySelector('i');
+            const translatedText = isKirill ? textKey : TRANSLATIONS[textKey] || textKey;
+            btn.innerHTML = `${icon ? icon.outerHTML : ''} ${translatedText}`;
+        };
+
+        updateButtonText(toggleLangBtn, 'Тил');
+        updateButtonText(toggleThemeBtn, 'Қоронғу режим');
+        updateButtonText(adminToggleBtn, 'Admin Rejim');
+        const uploadBtn = document.querySelector('#uploadForm .btn-primary');
+        if (uploadBtn) updateButtonText(uploadBtn, 'Китоб қўшиш');
+        
+        // Kategoriyalar matnini yangilash (iconlari bilan)
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            const icon = btn.querySelector('i');
+            const originalText = btn.getAttribute('data-original-text');
+            const iconHTML = icon ? icon.outerHTML : '';
+            btn.innerHTML = `${iconHTML} ${isKirill ? originalText : TRANSLATIONS[originalText] || originalText}`;
+        });
+
+        // overlay matnini yangilash
+        if (activeCategory) {
+            overlayTitle.textContent = isKirill ? activeCategory : (TRANSLATIONS[activeCategory] || activeCategory);
+            // Overlay scrollni top ga qaytarish
+            setTimeout(() => {
+                overlayContent.scrollTop = 0;
+            }, 10);
         }
-        const optionKey = option.getAttribute('data-original-text');
-        option.textContent = isKirill ? optionKey : (TRANSLATIONS[optionKey] || optionKey);
-    });
+
+        // Qidiruv maydoni yangilansin
+        filterBooks();
+    }, 300);
     
-    // Maxsus tugmalarni yangilash (iconlari bor)
-    const updateButtonText = (btn, textKey) => {
-        const icon = btn.querySelector('i');
-        const translatedText = isKirill ? textKey : TRANSLATIONS[textKey] || textKey;
-        btn.innerHTML = `${icon ? icon.outerHTML : ''} ${translatedText}`;
-    };
-
-    updateButtonText(toggleLangBtn, 'Тил');
-    updateButtonText(toggleThemeBtn, 'Қоронғу режим');
-    updateButtonText(adminToggleBtn, 'Admin Rejim');
-    const uploadBtn = document.querySelector('#uploadForm .btn-primary');
-    if (uploadBtn) updateButtonText(uploadBtn, 'Китоб қўшиш');
-    
-    // Kategoriyalar matnini yangilash (iconlari bilan)
-    document.querySelectorAll('.category-btn').forEach(btn => {
-        const icon = btn.querySelector('i');
-        const originalText = btn.getAttribute('data-original-text');
-        const iconHTML = icon ? icon.outerHTML : '';
-        btn.innerHTML = `${iconHTML} ${isKirill ? originalText : TRANSLATIONS[originalText] || originalText}`;
-    });
-
-    // overlay matnini yangilash
-    if (activeCategory) {
-        overlayTitle.textContent = isKirill ? activeCategory : (TRANSLATIONS[activeCategory] || activeCategory);
-        // Overlay scrollni top ga qaytarish
-        setTimeout(() => {
-            overlayContent.scrollTop = 0;
-        }, 10);
-    }
-
-    // Qidiruv maydoni yangilansin
-    filterBooks();
+    // Animatsiya tugagach classini olib tashlash (1000ms)
+    setTimeout(() => {
+        document.body.classList.remove('language-transitioning');
+    }, 1000);
 }
 
 function filterCategories(query) {
@@ -330,12 +349,6 @@ function bookCardTemplate(book) {
     return `
         <article class="card reveal" data-id="${book.id}" data-link="${book.link}" data-category="${book.category}">
             <div class="book-title">${title || 'Номсиз китоб'}</div>
-            ${isAdmin ? `
-            <div class="card-actions">
-                <button class="btn btn-danger" data-action="delete" data-id="${book.id}" data-link="${book.link}" type="button">
-                    <i class="fas fa-trash"></i> ${isKirill ? 'Ўчириш' : 'Delete'}
-                </button>
-            </div>` : ''}
         </article>
     `;
 }
@@ -478,11 +491,39 @@ function showPDFOptions(pdfURL, bookTitle = "kitob", bookId = null, fileURL = nu
     }
   }
   
+  const pdfModalBookTitle = document.getElementById('pdfModalBookTitle');
+  if (pdfModalBookTitle) {
+    // Oldin LaTeX formulalarini tekshiramiz, key code esliklarini tozalaymiz
+    const cleanTitle = (bookTitle || 'Kitob nomi yo\'q')
+      .replace(/\$.*?\$/g, '') // LaTeX-ni o'chirib tashlash
+      .trim();
+    pdfModalBookTitle.textContent = cleanTitle;
+  }
+
   setTimeout(() => pdfModal.classList.add('show'), 10);
 }
 
 openPDFBtn.addEventListener('click', () => { 
-  if (currentPDF) window.open(currentPDF, '_blank'); 
+  if (!currentPDF) return;
+
+  const isTelegram = navigator.userAgent.includes("Telegram");
+
+  if (isTelegram) {
+    const cleanURL = currentPDF.replace(/^https?:\/\//, "");
+    const intentUrl = `intent://${cleanURL}#Intent;scheme=https;package=com.android.chrome;end;`;
+
+    // Android uchun
+    window.location.href = intentUrl;
+
+    // Agar ishlamasa (iPhone)
+    setTimeout(() => {
+      const viewerURL = "https://docs.google.com/gview?url=" + currentPDF + "&embedded=true";
+      window.open(viewerURL, '_blank');
+    }, 1500);
+
+  } else {
+    window.open(currentPDF, '_blank');
+  }
 });
 
 downloadPDFBtn.addEventListener('click', async () => {
@@ -659,15 +700,38 @@ adminPasswordInput.addEventListener('keypress', (e) => {
 // =================== UPLOAD ===================
 uploadForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  
   const title = document.getElementById('bookTitle').value.trim();
   const description = document.getElementById('bookDescription').value.trim();
   const category = document.getElementById('bookCategory').value;
   const file = document.getElementById('bookFile').files[0];
   
+  // Validation - Kitob nomi
+  if (!title) {
+    showNotification(
+      isKirill ? '❌ Китоб номи киритинг!' : '❌ Enter book title!',
+      'error',
+      3000
+    );
+    return;
+  }
+  
+  // Validation - Kategoriya
+  if (!category) {
+    showNotification(
+      isKirill ? '❌ Категория танланг!' : '❌ Select category!',
+      'error',
+      3000
+    );
+    return;
+  }
+  
+  // Validation - PDF fayl
   if (!file) { 
     showNotification(
-      isKirill ? '❌ PDF файл танланмаган!' : '❌ PDF fayl tanlanmagan!',
-      'error'
+      isKirill ? '❌ PDF файл танланг!' : '❌ Select PDF file!',
+      'error',
+      3000
     );
     return; 
   }
@@ -740,7 +804,8 @@ uploadForm.addEventListener('submit', async (e) => {
     progressWrap.hidden = true;
     showNotification(
       isKirill ? '❌ Хатолик: ' + err.message : '❌ Error: ' + err.message,
-      'error'
+      'error',
+      3000
     );
   }
 });
