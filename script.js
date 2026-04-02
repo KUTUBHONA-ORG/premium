@@ -9,12 +9,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 
-// =================== SUPABASE STORAGE INIT ===================
-const SUPABASE_URL = 'https://nnrhivhwswibdpnygkwp.supabase.co'; // o'zingiz URL qo'ying
-const SUPABASE_ANON_KEY = 'sb_publishable_7xApUVAMQbxv9AhNfVm2NQ_ENrprB9n'; // hozirgi publishable key
-const SUPABASE_BUCKET = 'books';
-// O'zgaruvchi nomini _supabase yoki supabaseClient deb o'zgartiring
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const CF_WORKER_URL = 'https://broken-pine-aceb.ibrohimab06.workers.dev';
 
 // =================== ELEMENTS ===================
 const html = document.documentElement;
@@ -253,7 +248,11 @@ function setLanguage(isKirillParam) {
             btn.innerHTML = `${icon ? icon.outerHTML : ''} ${translatedText}`;
         };
 
-        updateButtonText(toggleLangBtn, 'Тил');
+        // Toggle language button label to opposite language (for switching)
+        const langIcon = toggleLangBtn.querySelector('i') ? toggleLangBtn.querySelector('i').outerHTML : '';
+        const langText = isKirill ? 'Lotincha' : 'Кириллча';
+        toggleLangBtn.innerHTML = `${langIcon} ${langText}`;
+
         updateButtonText(toggleThemeBtn, 'Қоронғу режим');
         updateButtonText(adminToggleBtn, 'Admin Rejim');
         const uploadBtn = document.querySelector('#uploadForm .btn-primary');
@@ -366,27 +365,27 @@ function filterBooks() {
   const q = (searchInput.value || '').toLowerCase();
 
   if (activeCategory) {
-    // Overlay yopiq bo'lganda kategoriya ichidagi kitoblarni filtrlash
     const filtered = allBooks.filter(b => 
       b.category === activeCategory && 
       (!q || (b.title && b.title.toLowerCase().includes(q)) || 
              (b.description && b.description.toLowerCase().includes(q)))
     );
     renderBooks(filtered, overlayBooks);
-  } else {
-    // Bosh sahifada faqat qidirsh bo'yicha kitoblarni chiqarish
-    if (q) {
-      // Qidiruv qidirsa kitoblarni chiqar
-      const filtered = allBooks.filter(b => 
-        (b.title && b.title.toLowerCase().includes(q)) ||
-        (b.description && b.description.toLowerCase().includes(q))
-      );
-      renderBooks(filtered, booksContainer);
-    } else {
-      // Qidiruv bo'sh bo'lsa bosh sahifani tozala
-      booksContainer.innerHTML = '';
-    }
+    return;
   }
+
+  if (!q) {
+    booksContainer.innerHTML = '';
+    return;
+  }
+
+  const filtered = allBooks.filter(b => 
+    (b.title && b.title.toLowerCase().includes(q)) ||
+    (b.description && b.description.toLowerCase().includes(q)) ||
+    (b.category && b.category.toLowerCase().includes(q))
+  );
+
+  renderBooks(filtered, booksContainer);
 }
 
 searchInput.addEventListener('input', () => {
@@ -509,18 +508,9 @@ openPDFBtn.addEventListener('click', () => {
   const isTelegram = navigator.userAgent.includes("Telegram");
 
   if (isTelegram) {
-    const cleanURL = currentPDF.replace(/^https?:\/\//, "");
-    const intentUrl = `intent://${cleanURL}#Intent;scheme=https;package=com.android.chrome;end;`;
-
-    // Android uchun
-    window.location.href = intentUrl;
-
-    // Agar ishlamasa (iPhone)
-    setTimeout(() => {
-      const viewerURL = "https://docs.google.com/gview?url=" + currentPDF + "&embedded=true";
-      window.open(viewerURL, '_blank');
-    }, 1500);
-
+    // Google Docs Viewer orqali ochish - bu Telegram ichida yuklamasdan ko'rish imkonini beradi
+    const viewerURL = "https://docs.google.com/gview?url=" + encodeURIComponent(currentPDF) + "&embedded=true";
+    window.location.href = viewerURL; 
   } else {
     window.open(currentPDF, '_blank');
   }
@@ -584,17 +574,16 @@ pdfModal.addEventListener('click', (e) => {
 // =================== Delegate actions on main page cards ===================
 // Asosiy sahifada kitoblar bo'lmaydi, shuning uchun bu funksiya o'chirib tashlandi.
 
-// =================== CLICK HANDLERS ===================
-overlayBooks.addEventListener('click', (e) => {
-  const deleteBtn = e.target.closest('[data-action="delete"]');
-  console.log('overlayBooks click', e.target, 'deleteBtn', deleteBtn);
+// ========== CARD CLICK HANDLER ==========
+function onCardClick(event, containerType) {
+  const deleteBtn = event.target.closest('[data-action="delete"]');
 
   if (deleteBtn) {
-    e.stopPropagation();
-    e.preventDefault();
+    event.stopPropagation();
+    event.preventDefault();
 
     if (!isAdmin) {
-      showNotification(isKirill ? '❌ Admin rejимига кiring!' : '❌ Admin mode required!', 'error');
+      showNotification(isKirill ? '❌ Admin rejимga кiring!' : '❌ Admin mode required!', 'error');
       return;
     }
 
@@ -605,17 +594,20 @@ overlayBooks.addEventListener('click', (e) => {
       return;
     }
 
-    console.log('DELETE BUTTON CLICK', { bookId });
     deleteBook(bookId);
     return;
   }
-  
-  const card = e.target.closest('.card');
+
+  const card = event.target.closest('.card');
   if (card && card.dataset.link) {
-    const bookTitle = card.querySelector('.book-title')?.textContent || 'kitob';
+    const bookTitle = card.querySelector('.book-title')?.textContent || (isKirill ? 'Номсиз китоб' : 'Untitled book');
     showPDFOptions(card.dataset.link, bookTitle, card.dataset.id, card.dataset.link);
   }
-}, false);
+}
+
+// =================== CLICK HANDLERS ===================
+overlayBooks.addEventListener('click', (e) => onCardClick(e, 'overlay'), false);
+booksContainer.addEventListener('click', (e) => onCardClick(e, 'main'), false);
 
 // =================== ADMIN ===================
 adminToggleBtn.addEventListener('click', () => {
@@ -739,40 +731,28 @@ uploadForm.addEventListener('submit', async (e) => {
   try {
     const clean = file.name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_\-.]/g,'');
     const unique = `${Date.now()}_${clean}`;
-    const filePath = `${unique}`;
+    const filePath = `books/${unique}`;
 
     progressWrap.hidden = false;
     progressBar.style.width = '0%';
     progressBar.textContent = '0%';
-    
-    // Simulate upload progress
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-      if (progress < 90) progress += Math.random() * 30;
-      progressBar.style.width = Math.min(progress, 90) + '%';
-      progressBar.textContent = Math.floor(Math.min(progress, 90)) + '%';
-    }, 300);
 
-    const { data: uploadData, error: uploadError } = await _supabase.storage
-      .from(SUPABASE_BUCKET)
-      .upload(filePath, file, { cacheControl: '3600', upsert: false });
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('path', filePath);
 
-    if (uploadError) {
-      throw uploadError;
+    const uploadResp = await fetch(`${CF_WORKER_URL}/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!uploadResp.ok) {
+      throw new Error('R2 upload failed: ' + uploadResp.statusText);
     }
 
-    const { data: publicUrlData, error: publicUrlError } = _supabase.storage
-      .from(SUPABASE_BUCKET)
-      .getPublicUrl(filePath);
+    const uploadResult = await uploadResp.json();
+    const publicUrl = uploadResult.url;
 
-    if (publicUrlError) {
-      throw publicUrlError;
-    }
-
-    const url = publicUrlData.publicUrl;
-    
-    // Complete the progress bar
-    clearInterval(progressInterval);
     progressBar.style.width = '100%';
     progressBar.textContent = '100%';
 
@@ -780,7 +760,7 @@ uploadForm.addEventListener('submit', async (e) => {
       title,
       description,
       category,
-      link: url,
+      link: publicUrl,
       path: filePath,
       secret_code: 'XoLiSaMaLqIlGuVcHiLaRdAnQiL.',
       created: new Date()
@@ -853,13 +833,22 @@ async function deleteBook(bookId) {
     
     // 1. Firestore-dan o'chirish
     await docRef.delete();
-    
-    // 2. Supabase Storage-dan o'chirish (agar path bo'lsa)
+
+    // 2. R2 Storage-dan o'chirish (agar path bo'lsa)
     if (path) {
-      const { error: storageError } = await _supabase.storage
-        .from(SUPABASE_BUCKET)
-        .remove([path]);
-      if (storageError) console.error("Storage delete error:", storageError);
+      try {
+        const deleteResp = await fetch(`${CF_WORKER_URL}/delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path }),
+        });
+
+        if (!deleteResp.ok) {
+          console.error('R2 delete failed', await deleteResp.text());
+        }
+      } catch (storageError) {
+        console.error('R2 Storage delete error:', storageError);
+      }
     }
 
     // 3. UI yangilash
@@ -881,8 +870,12 @@ async function deleteBook(bookId) {
 function loadBooks() {
   if (booksUnsubscribe) booksUnsubscribe();
   booksUnsubscribe = firebase.firestore().collection('books').onSnapshot(snap => {
-    allBooks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    booksContainer.innerHTML = '';
+    allBooks = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(b => b.category && b.link); // Hech qanday kategoriyasi yo‘q yoki URL yo‘q bo‘lsa ko‘rsatmaymiz
+
+    // Saqlagan holda, faqat qidiruv yoki overlay holatida chiqaramiz
+    filterBooks();
   });
 }
 
